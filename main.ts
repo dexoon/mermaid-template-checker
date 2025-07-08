@@ -362,19 +362,23 @@ function isValidComment(comment: string): boolean {
   return false;
 }
 
-export async function checkMermaidFilesInDirectory(dirPath: string): Promise<MermaidCheckResult[]> {
+export async function checkMermaidFilesInDirectory(dirPath: string, recursive: boolean = true): Promise<MermaidCheckResult[]> {
   const results: MermaidCheckResult[] = [];
   
   try {
-    const entries = Deno.readDir(dirPath);
-    
-    for await (const entry of entries) {
-      if (entry.isFile && entry.name.endsWith('.md')) {
-        const filePath = `${dirPath}/${entry.name}`;
-        const content = await Deno.readTextFile(filePath);
-        const result = checkMermaidFile(content);
-        result.filePath = filePath;
-        results.push(result);
+    if (recursive) {
+      await checkMermaidFilesRecursive(dirPath, results);
+    } else {
+      const entries = Deno.readDir(dirPath);
+      
+      for await (const entry of entries) {
+        if (entry.isFile && entry.name.endsWith('.md')) {
+          const filePath = `${dirPath}/${entry.name}`;
+          const content = await Deno.readTextFile(filePath);
+          const result = checkMermaidFile(content);
+          result.filePath = filePath;
+          results.push(result);
+        }
       }
     }
   } catch (error) {
@@ -384,27 +388,65 @@ export async function checkMermaidFilesInDirectory(dirPath: string): Promise<Mer
   return results;
 }
 
+async function checkMermaidFilesRecursive(dirPath: string, results: MermaidCheckResult[]): Promise<void> {
+  try {
+    const entries = Deno.readDir(dirPath);
+    
+    for await (const entry of entries) {
+      const fullPath = `${dirPath}/${entry.name}`;
+      
+      if (entry.isFile && entry.name.endsWith('.md')) {
+        const content = await Deno.readTextFile(fullPath);
+        const result = checkMermaidFile(content);
+        result.filePath = fullPath;
+        results.push(result);
+      } else if (entry.isDirectory) {
+        // Recursively check subdirectories
+        await checkMermaidFilesRecursive(fullPath, results);
+      }
+    }
+  } catch (error) {
+    console.error(`Error reading directory ${dirPath}:`, error);
+  }
+}
+
 // Learn more at https://docs.deno.com/runtime/manual/examples/module_metadata#concepts
 if (import.meta.main) {
   const args = Deno.args;
   
   if (args.length === 0) {
-    console.log("Usage: deno run main.ts <directory_path>");
+    console.log("Usage: deno run main.ts <directory_path> [--no-recursive]");
     console.log("Example: deno run main.ts tests/correct");
+    console.log("Example: deno run main.ts tests/correct --no-recursive");
+    console.log("\nBy default, searches recursively through all subdirectories.");
+    console.log("Use --no-recursive to search only the specified directory.");
     Deno.exit(1);
   }
   
   const dirPath = args[0];
-  console.log(`Checking mermaid files in: ${dirPath}`);
+  const noRecursive = args.includes('--no-recursive');
+  const recursive = !noRecursive;
   
-  const results = await checkMermaidFilesInDirectory(dirPath);
+  console.log(`Checking mermaid files in: ${dirPath} (${recursive ? 'recursive' : 'non-recursive'})`);
+  
+  const results = await checkMermaidFilesInDirectory(dirPath, recursive);
+  
+  let hasErrors = false;
   
   results.forEach(result => {
     console.log(`\nFile: ${result.filePath}`);
     console.log(`Valid: ${result.isValid ? '✅' : '❌'}`);
     if (result.errors.length > 0) {
+      hasErrors = true;
       console.log('Errors:');
       result.errors.forEach(error => console.log(`  - ${error}`));
     }
   });
+  
+  if (hasErrors) {
+    console.log('\n❌ Some files contain errors. Exiting with code 1.');
+    Deno.exit(1);
+  } else {
+    console.log('\n✅ All files are valid!');
+  }
 }

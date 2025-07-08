@@ -64,10 +64,10 @@ docker-compose --profile test-incorrect up
 #### Using GitHub Container Registry
 ```bash
 # Pull the latest image
-docker pull ghcr.io/YOUR_USERNAME/mermaid-template-checker:main
+docker pull ghcr.io/dexoon/mermaid-template-checker:main
 
 # Run the container
-docker run -v /path/to/your/md/files:/data ghcr.io/YOUR_USERNAME/mermaid-template-checker:main
+docker run -v /path/to/your/md/files:/data ghcr.io/dexoon/mermaid-template-checker:main
 ```
 
 ## Test Structure
@@ -91,7 +91,7 @@ Images are automatically built and pushed to GHCR on:
 - Every push to main branch
 - Every tag push (for versioned releases)
 
-The image can be found at: `ghcr.io/YOUR_USERNAME/mermaid-template-checker`
+The image can be found at: `ghcr.io/dexoon/mermaid-template-checker`
 
 ## Validation Rules
 
@@ -113,17 +113,16 @@ The checker validates flowcharts according to specific template rules:
 
 ### Node Content Rules
 3. **Node Labels**: Must follow specific content structure:
-   - **Start with**: `/text/` or `//media//` block (can be multi-line)
-   - **Buttons**: Either `[inline]` buttons or `[[reply]]` buttons (no mixing)
-   - **Variables**: Can contain `{variables}` for dynamic content
-   - **Templates**: Can contain `((templates))` for reusable content
+   - **Labels must be in double quotes**: All node labels must be properly quoted
+   - **Multi-line support**: Labels can span multiple lines with real line breaks
+   - **No `\n` characters**: Use actual line breaks in the diagram code
 
 ### Rectangle Node Rules
 4. **Rectangle Nodes** (message templates) have 3 parts (some optional):
    - **Text/caption**: `/my text/` (can contain `{$variables}` and `((templates))`)
    - **Media description**: `//photo of me//`
    - **Buttons**: `[inline]` or `[[reply]]` (can contain both types)
-   - At least one of text or media must be present
+   - **At least one required**: Either text or media must be present (buttons are optional)
 
 ### Connections
 5. **Connection Syntax**: Must use `FROM_NODE == "User action" ==> TO_NODE` or `FROM_NODE -- "User action" --> TO_NODE`
@@ -134,11 +133,13 @@ The checker validates flowcharts according to specific template rules:
    - Button: `[Button Text]`
    - Media: `//photo//`, `//video//`
    - Text: Plain text in double quotes
+8. **No mixing arrow types**: For a given user action between two nodes, you cannot use both `==` and `--` arrows for the same comment
 
 ### Validation
-8. **Node References**: All connections must reference defined nodes
-9. **Diagram Type**: Only flowcharts are validated
-10. **Labels**: All labels must be in double quotes, multi-line labels supported
+9. **Node References**: All connections must reference defined nodes
+10. **Diagram Type**: Only flowcharts are validated
+11. **Section Order**: Node Definitions must come before Connections
+12. **Content Placement**: Connection syntax is not allowed in Node Definitions section
 
 ## Output
 
