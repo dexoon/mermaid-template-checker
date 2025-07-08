@@ -337,6 +337,45 @@ No mermaid blocks here.`;
   assertEquals(result.errors.length, 0);
 });
 
+Deno.test("checkMermaidFile - stadium shaped node for FSM transitions", async () => {
+  const stadiumContent = `# Test
+\`\`\`mermaid
+flowchart TD
+%% Node Definitions
+START("/Welcome/")
+TRANSITION(["Go to other module"])
+END["/Thank you for using our service/"]
+
+%% Connections
+START == "User starts" ==> TRANSITION
+TRANSITION == "User clicks" ==> END
+\`\`\``;
+  
+  const result = checkMermaidFile(stadiumContent);
+  assertEquals(result.isValid, true);
+  assertEquals(result.errors.length, 0);
+});
+
+Deno.test("checkMermaidFile - multi-line stadium shaped node", async () => {
+  const multiLineStadiumContent = `# Test
+\`\`\`mermaid
+flowchart TD
+%% Node Definitions
+START("/Welcome/")
+TRANSITION(["Go to other module
+with multi-line label"])
+END["/Thank you for using our service/"]
+
+%% Connections
+START == "User starts" ==> TRANSITION
+TRANSITION == "User clicks" ==> END
+\`\`\``;
+  
+  const result = checkMermaidFile(multiLineStadiumContent);
+  assertEquals(result.isValid, true);
+  assertEquals(result.errors.length, 0);
+});
+
 Deno.test("checkMermaidFilesInDirectory - correct folder", async () => {
   const results = await checkMermaidFilesInDirectory("tests/correct");
   

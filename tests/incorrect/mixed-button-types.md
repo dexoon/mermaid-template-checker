@@ -3,16 +3,16 @@
 ```mermaid
 flowchart TD
 %% Node Definitions
-WELCOME("Welcome")
-GREETING["/text/Hello! How can I help you?"]
-CHOICE{{/text/What would you like to do?}}
+START("/Welcome/")
+GREETING["/Hello! How can I help you?/"]
+CHOICE{"/text/What would you like to do?"}
 PROCESS[/text/Processing your request/]
 END["/text/Thank you for using our service"]
 
 %% Connections
-WELCOME == "User starts" ==> GREETING
+START == "User starts" ==> GREETING
 GREETING == "User responds" ==> CHOICE
-CHOICE == "[Continue] [[Reply]]" ==> PROCESS
+CHOICE == "[Continue] [[Reply]]" ==> START
 PROCESS == "Request processed" ==> END
 ```
 

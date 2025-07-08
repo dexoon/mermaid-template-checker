@@ -179,7 +179,7 @@ The checker validates flowcharts according to specific template rules:
    - **Rectangle**: `NODE_ID["Label"]` - for user messages, buttons, or text
    - **Diamond**: `NODE_ID{"Label"}` - for conditions or branching
    - **Circle**: `NODE_ID(("Label"))` - for transitions to other FSM modules
-   - **Hexagon**: `NODE_ID{{"Label"}}` - for explicit branching/choice points
+   - **Hexagon**: `NODE_ID{"Label"}` - for explicit branching/choice points
    - **Parallelogram**: `NODE_ID[/"Label"/]` - for function calls
 
 ### Node Content Rules

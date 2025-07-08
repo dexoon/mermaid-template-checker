@@ -6,7 +6,7 @@ interface MermaidCheckResult {
 
 interface NodeDefinition {
   id: string;
-  type: 'rectangled-circle' | 'rectangle' | 'diamond' | 'circle' | 'hexagon' | 'parallelogram';
+  type: 'rectangled-circle' | 'rectangle' | 'diamond' | 'circle' | 'hexagon' | 'parallelogram' | 'stadium';
   label: string;
   lineNumber: number;
 }
@@ -197,14 +197,14 @@ function getMultiLineNodeStart(line: string): { prefix: string, labelStart: stri
     { regex: /^([A-Za-z0-9_]+)\("([^"]*)$/, closing: '")' },
     // Rectangle: NODE_ID["Label
     { regex: /^([A-Za-z0-9_]+)\["([^"]*)$/, closing: '"]' },
-    // Diamond: NODE_ID{"Label
+    // Diamond/Hexagon: NODE_ID{"Label
     { regex: /^([A-Za-z0-9_]+)\{"([^"]*)$/, closing: '"}' },
     // Circle: NODE_ID(("Label
     { regex: /^([A-Za-z0-9_]+)\(\("([^"]*)$/, closing: '"))' },
-    // Hexagon: NODE_ID{{"Label
-    { regex: /^([A-Za-z0-9_]+)\{\{"([^"]*)$/, closing: '"}}' },
     // Parallelogram: NODE_ID[/"Label
-    { regex: /^([A-Za-z0-9_]+)\[\/"([^"]*)$/, closing: '"/]' }
+    { regex: /^([A-Za-z0-9_]+)\[\/"([^"]*)$/, closing: '"/]' },
+    // Stadium: NODE_ID(["Label
+    { regex: /^([A-Za-z0-9_]+)\(\["([^"]*)$/, closing: '"])' }
   ];
   for (const pattern of patterns) {
     const match = line.match(pattern.regex);
@@ -228,26 +228,26 @@ function parseNodeDefinition(line: string, lineNumber: number, blockNumber: numb
     { regex: /^([A-Za-z0-9_]+)\["([^"]*)"\]$/, type: 'rectangle' as const },
     // Diamond: NODE_ID{"Label"}
     { regex: /^([A-Za-z0-9_]+)\{"([^"]*)"\}$/, type: 'diamond' as const },
+    // Hexagon: NODE_ID{"Label"}
+    { regex: /^([A-Za-z0-9_]+)\{"([^"]*)"\}$/, type: 'hexagon' as const },
     // Circle: NODE_ID(("Label"))
     { regex: /^([A-Za-z0-9_]+)\(\("([^"]*)"\)\)$/, type: 'circle' as const },
-    // Hexagon: NODE_ID{{"Label"}}
-    { regex: /^([A-Za-z0-9_]+)\{\{"([^"]*)"\}\}$/, type: 'hexagon' as const },
     // Parallelogram: NODE_ID[/"Label"/]
-    { regex: /^([A-Za-z0-9_]+)\[\/"([^"]*)"\/\]$/, type: 'parallelogram' as const }
+    { regex: /^([A-Za-z0-9_]+)\[\/"([^"]*)"\/\]$/, type: 'parallelogram' as const },
+    // Stadium: NODE_ID(["Label"])
+    { regex: /^([A-Za-z0-9_]+)\(\["([^"]*)"\]\)$/, type: 'stadium' as const }
   ];
-  
   for (const pattern of patterns) {
     const match = line.match(pattern.regex);
     if (match) {
       const nodeId = match[1];
       const label = match[2];
-      
+      // For diamond/hexagon, disambiguate by id or context if needed (here, just assign as found)
       // Validate the label content according to node type
       const labelValidation = validateNodeLabel(label, pattern.type, lineNumber, blockNumber);
       if (labelValidation.error) {
         return { error: labelValidation.error };
       }
-      
       return {
         node: {
           id: nodeId,
@@ -258,9 +258,8 @@ function parseNodeDefinition(line: string, lineNumber: number, blockNumber: numb
       };
     }
   }
-  
   return {
-    error: `Block ${blockNumber}, line ${lineNumber}: Invalid node definition syntax. Expected one of: NODE_ID("Label"), NODE_ID["Label"], NODE_ID{"Label"}, NODE_ID(("Label")), NODE_ID{{"Label"}}, NODE_ID[/"Label"/]`
+    error: `Block ${blockNumber}, line ${lineNumber}: Invalid node definition syntax. Expected one of: NODE_ID("Label"), NODE_ID["Label"], NODE_ID{"Label"}, NODE_ID(("Label")), NODE_ID[\"Label\"/], NODE_ID(["Label"])`
   };
 }
 
@@ -346,6 +345,11 @@ function parseConnection(line: string, lineNumber: number, blockNumber: number):
 function isValidComment(comment: string): boolean {
   // Button format: [Button Text]
   if (/^\[[^\]]+\]$/.test(comment)) {
+    return true;
+  }
+  
+  // Reply button format: [[Button Text]]
+  if (/^\[\[[^\]]+\]\]$/.test(comment)) {
     return true;
   }
   

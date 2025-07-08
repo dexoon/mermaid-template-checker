@@ -3,19 +3,18 @@
 ```mermaid
 flowchart TD
   %% Node Definitions
-  WELCOME("/Welcome/")
-  GREETING["/Hello {$user}! How can I help you?/"]
-  CHOICE{{"What would you like to do?"}}
+  START("/Welcome/")
+  GREETING["/Hello {$user_name}! How can I help you?/"]
+  PROCESS["/Processing with {template_name}/"]
+  CHOICE{"What would you like to do?"}
   TEMPLATE["/((main-menu))/"]
-  PROCESS["/Processing your request/"]
   END["/Thank you for using our service/"]
   
   %% Connections
-  WELCOME == "Start" ==> GREETING
-  GREETING == "Continue" ==> CHOICE
+  START == "User starts" ==> GREETING
+  GREETING == "User responds" ==> PROCESS
   CHOICE == "Show menu" ==> TEMPLATE
-  TEMPLATE == "Process" ==> PROCESS
-  PROCESS == "Complete" ==> END
+  TEMPLATE == "Process" ==> END
 ```
 
 This flowchart demonstrates variables {$variables} and templates ((templates)) in node definitions. 

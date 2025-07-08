@@ -16,7 +16,7 @@ Diagram Rules (Plain English)
 
         Node types and their appearance:
 
-            Rectangled-circle: For initial node.
+            Rectangle with round edges: For initial node.
             Syntax: NODE_ID("Label")
 
             Rectangle: For user messages, buttons, or text.
@@ -25,13 +25,13 @@ Diagram Rules (Plain English)
             Diamond: For conditions or branching.
             Syntax: NODE_ID{"Label"}
 
-            Circle: For transitions to other FSM modules.
-            Syntax: NODE_ID(("Label"))
+            Stadium shaped: For transitions to other FSM modules.
+            Syntax: NODE_ID(["Label"])
 
             Hexagon: For explicit branching/choice points.
-            Syntax: NODE_ID{{"Label"}}
+            Syntax: NODE_ID{"Label"}
 
-            Parallelogram: For function calls.
+            Parallelogram: For side-function calls.
             Syntax: NODE_ID[/"Label"/]
 
         Labels must always be inside double quotes, even if they span multiple lines (the opening " is the first character inside the brackets, the closing " is the last thing before the bracket closes).
