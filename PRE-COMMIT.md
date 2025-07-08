@@ -187,16 +187,11 @@ To use the mermaid template checker as a pre-commit hook in your own repository,
 ```yaml
 repos:
   - repo: https://github.com/dexoon/mermaid-template-checker
-    rev: v1.0.0  # Use the latest release
+    rev: v1.0.0  # Use the latest release tag, not 'latest'
     hooks:
       - id: mermaid-checker
-        name: Mermaid Template Checker
-        entry: deno run --allow-read main.ts
-        language: system
-        types: [markdown]
-        pass_filenames: false
+        # args: ["<folder>"]  # Replace <folder> with the directory you want to check
         args: ["."]
-        description: "Validates mermaid flowcharts in markdown files"
 ```
 
 Then run:
