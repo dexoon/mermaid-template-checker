@@ -187,7 +187,7 @@ To use the mermaid template checker as a pre-commit hook in your own repository,
 ```yaml
 repos:
   - repo: https://github.com/dexoon/mermaid-template-checker
-    rev: v1.0.0  # Use the latest release tag, not 'latest'
+    rev: v0.1.1  # Use the latest release tag, not 'latest'
     hooks:
       # Option 1: Check all markdown files in the repository
       - id: mermaid-checker
