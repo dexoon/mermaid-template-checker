@@ -1,0 +1,11 @@
+repos:
+  - repo: local
+    hooks:
+      - id: mermaid-checker
+        name: Mermaid Template Checker
+        entry: deno run --allow-read main.ts
+        language: system
+        types: [markdown]
+        pass_filenames: false
+        args: ["tests/correct"]
+        description: "Validates mermaid flowcharts in markdown files" 

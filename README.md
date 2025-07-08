@@ -14,6 +14,29 @@ A Deno-based tool for validating Mermaid diagrams in Markdown files against synt
 
 ## Usage
 
+### Pre-commit Hook Setup
+
+To automatically validate mermaid diagrams before each commit:
+
+```bash
+# Run the setup script (recommended)
+./scripts/setup-pre-commit.sh
+
+# Or manually install pre-commit and configure hooks
+pip install pre-commit
+pre-commit install
+```
+
+The pre-commit hook will:
+- Run automatically on markdown files before each commit
+- Validate all mermaid diagrams in the repository
+- Prevent commits if validation errors are found
+
+To run the pre-commit check manually:
+```bash
+pre-commit run --all-files
+```
+
 ### Local Development
 
 #### Check a single directory
@@ -69,6 +92,37 @@ docker pull ghcr.io/dexoon/mermaid-template-checker:main
 # Run the container
 docker run -v /path/to/your/md/files:/data ghcr.io/dexoon/mermaid-template-checker:main
 ```
+
+## Using as a Pre-commit Hook in Your Project
+
+To use the mermaid template checker in your own project, add the following to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/dexoon/mermaid-template-checker
+    rev: v1.0.0  # Use the latest release
+    hooks:
+      - id: mermaid-checker
+        name: Mermaid Template Checker
+        entry: deno run --allow-read main.ts
+        language: system
+        types: [markdown]
+        pass_filenames: false
+        # args: ["<folder>"]  # Replace <folder> with the directory you want to check
+        args: ["."]
+        description: "Validates mermaid flowcharts in markdown files"
+```
+
+Then run:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This will ensure all your markdown files are checked before each commit.
+
+---
 
 ## Test Structure
 
