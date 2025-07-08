@@ -26,11 +26,11 @@ export function checkMermaidFile(content: string): MermaidCheckResult {
   const mermaidBlocks = content.match(/```mermaid\n([\s\S]*?)\n```/g);
   
   if (!mermaidBlocks) {
-    errors.push("No mermaid code blocks found");
+    // Files that contain no flowchart are not considered errors
     return {
       filePath: "",
-      isValid: false,
-      errors
+      isValid: true,
+      errors: []
     };
   }
   

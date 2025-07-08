@@ -86,4 +86,6 @@ Diagram Rules (Plain English)
 
         Only flowcharts are validated.
 
+        Files that contain no flowchart are not considered errors.
+
         Any deviation from the above formats will be considered an error.

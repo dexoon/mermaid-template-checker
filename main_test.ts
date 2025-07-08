@@ -333,8 +333,8 @@ This is just regular markdown content.
 No mermaid blocks here.`;
   
   const result = checkMermaidFile(noMermaidContent);
-  assertEquals(result.isValid, false);
-  assertEquals(result.errors.some(e => e.includes("No mermaid code blocks found")), true);
+  assertEquals(result.isValid, true);
+  assertEquals(result.errors.length, 0);
 });
 
 Deno.test("checkMermaidFilesInDirectory - correct folder", async () => {
