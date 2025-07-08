@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { checkMermaidFile, checkMermaidFilesInDirectory } from "./main.ts";
 
 Deno.test("checkMermaidFile - valid flowchart content", async () => {
@@ -367,4 +367,28 @@ Deno.test("checkMermaidFilesInDirectory - non-existent folder", async () => {
   
   assertExists(results);
   assertEquals(results.length, 0);
+});
+
+Deno.test("checkMermaidFilesInDirectory - with filename template", async () => {
+  // Resolve the path to 'tests/correct' relative to this test file
+  const testDir = new URL("./tests/correct", import.meta.url).pathname;
+
+  // Test with template1 (should match .md files with node in name)
+  const resultsWithTemplate1 = await checkMermaidFilesInDirectory(testDir, true, '*node*.md');
+  
+  assertExists(resultsWithTemplate1);
+  assertEquals(resultsWithTemplate1.length > 0, true);
+  
+  // All matched files should include at least one file containing 'node' and ending with '.md'
+  const filesWithNode = resultsWithTemplate1.filter(result => {
+    const fileName = result.filePath.split('/').pop() || '';
+    return fileName.includes('node') && fileName.endsWith('.md');
+  });
+  assert(filesWithNode.length > 0, 'Should match at least one file containing "node" and ending with ".md"');
+  
+  // Test with template that should match no files
+  const resultsWithNoMatchTemplate = await checkMermaidFilesInDirectory(testDir, true, "nonexistent*.md");
+  
+  assertExists(resultsWithNoMatchTemplate);
+  assertEquals(resultsWithNoMatchTemplate.length, 0);
 });

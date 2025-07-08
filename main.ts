@@ -362,17 +362,22 @@ function isValidComment(comment: string): boolean {
   return false;
 }
 
-export async function checkMermaidFilesInDirectory(dirPath: string, recursive: boolean = true): Promise<MermaidCheckResult[]> {
+export async function checkMermaidFilesInDirectory(dirPath: string, recursive: boolean = true, filenameTemplate?: string): Promise<MermaidCheckResult[]> {
   const results: MermaidCheckResult[] = [];
   
   try {
     if (recursive) {
-      await checkMermaidFilesRecursive(dirPath, results);
+      await checkMermaidFilesRecursive(dirPath, results, filenameTemplate);
     } else {
       const entries = Deno.readDir(dirPath);
       
       for await (const entry of entries) {
         if (entry.isFile && entry.name.endsWith('.md')) {
+          // Check if filename matches template
+          if (filenameTemplate && !matchesFilenameTemplate(entry.name, filenameTemplate)) {
+            continue;
+          }
+          
           const filePath = `${dirPath}/${entry.name}`;
           const content = await Deno.readTextFile(filePath);
           const result = checkMermaidFile(content);
@@ -388,7 +393,7 @@ export async function checkMermaidFilesInDirectory(dirPath: string, recursive: b
   return results;
 }
 
-async function checkMermaidFilesRecursive(dirPath: string, results: MermaidCheckResult[]): Promise<void> {
+async function checkMermaidFilesRecursive(dirPath: string, results: MermaidCheckResult[], filenameTemplate?: string): Promise<void> {
   try {
     const entries = Deno.readDir(dirPath);
     
@@ -396,13 +401,18 @@ async function checkMermaidFilesRecursive(dirPath: string, results: MermaidCheck
       const fullPath = `${dirPath}/${entry.name}`;
       
       if (entry.isFile && entry.name.endsWith('.md')) {
+        // Check if filename matches template
+        if (filenameTemplate && !matchesFilenameTemplate(entry.name, filenameTemplate)) {
+          continue;
+        }
+        
         const content = await Deno.readTextFile(fullPath);
         const result = checkMermaidFile(content);
         result.filePath = fullPath;
         results.push(result);
       } else if (entry.isDirectory) {
         // Recursively check subdirectories
-        await checkMermaidFilesRecursive(fullPath, results);
+        await checkMermaidFilesRecursive(fullPath, results, filenameTemplate);
       }
     }
   } catch (error) {
@@ -410,16 +420,31 @@ async function checkMermaidFilesRecursive(dirPath: string, results: MermaidCheck
   }
 }
 
+function matchesFilenameTemplate(filename: string, template: string): boolean {
+  // Escape regex special characters except * and ?
+  const escaped = template.replace(/([.+^${}()|[\]\\])/g, '\\$1');
+  // Replace * with .*, ? with .
+  const regexPattern = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+
+  const regex = new RegExp(`^${regexPattern}$`);
+  const matches = regex.test(filename);
+
+  return matches;
+}
+
 // Learn more at https://docs.deno.com/runtime/manual/examples/module_metadata#concepts
 if (import.meta.main) {
   const args = Deno.args;
   
   if (args.length === 0) {
-    console.log("Usage: deno run main.ts <directory_path> [--no-recursive]");
+    console.log("Usage: deno run main.ts <directory_path> [--no-recursive] [--template <filename_template>]");
     console.log("Example: deno run main.ts tests/correct");
     console.log("Example: deno run main.ts tests/correct --no-recursive");
+    console.log("Example: deno run main.ts tests/correct --template 'test-*.md'");
+    console.log("Example: deno run main.ts tests/correct --template 'flowchart-*.md'");
     console.log("\nBy default, searches recursively through all subdirectories.");
     console.log("Use --no-recursive to search only the specified directory.");
+    console.log("Use --template to filter files by name pattern (supports * and ? wildcards).");
     Deno.exit(1);
   }
   
@@ -427,9 +452,19 @@ if (import.meta.main) {
   const noRecursive = args.includes('--no-recursive');
   const recursive = !noRecursive;
   
-  console.log(`Checking mermaid files in: ${dirPath} (${recursive ? 'recursive' : 'non-recursive'})`);
+  // Parse filename template argument
+  let filenameTemplate: string | undefined;
+  const templateIndex = args.indexOf('--template');
+  if (templateIndex !== -1 && templateIndex + 1 < args.length) {
+    filenameTemplate = args[templateIndex + 1];
+  }
   
-  const results = await checkMermaidFilesInDirectory(dirPath, recursive);
+  console.log(`Checking mermaid files in: ${dirPath} (${recursive ? 'recursive' : 'non-recursive'})`);
+  if (filenameTemplate) {
+    console.log(`Using filename template: ${filenameTemplate}`);
+  }
+  
+  const results = await checkMermaidFilesInDirectory(dirPath, recursive, filenameTemplate);
   
   let hasErrors = false;
   

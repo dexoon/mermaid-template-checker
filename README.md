@@ -110,6 +110,13 @@ repos:
       # Option 2: Check only staged markdown files (faster)
       # - id: mermaid-checker-staged
       #   args: ["."]
+      
+      # Option 3: Check files matching a specific template pattern
+      # - id: mermaid-checker
+      #   args: ["<folder>", "--template", "*node*.md"]  # Only check files containing 'node' and ending with '.md'
+      #   # Other template examples:
+      #   # args: ["<folder>", "--template", "flowchart-*.md"]  # Only check files starting with 'flowchart-'
+      #   # args: ["<folder>", "--template", "*test*.md"]      # Only check files containing 'test'
 ```
 
 Then run:
