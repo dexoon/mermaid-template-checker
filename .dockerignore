@@ -1,0 +1,10 @@
+.git
+.gitignore
+README.md
+tests/
+main_test.ts
+.github/
+*.md
+!deno.json
+!deno.lock
+!main.ts 

@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  mermaid-checker:
+    build: .
+    volumes:
+      - ./tests:/data
+    environment:
+      - DENO_DIR=/app/.deno
+    profiles:
+      - test
+
+  mermaid-checker-correct:
+    build: .
+    volumes:
+      - ./tests/correct:/data
+    profiles:
+      - test-correct
+
+  mermaid-checker-incorrect:
+    build: .
+    volumes:
+      - ./tests/incorrect:/data
+    profiles:
+      - test-incorrect 
