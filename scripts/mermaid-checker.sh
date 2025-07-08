@@ -15,6 +15,6 @@ if [ ! -f "$REPO_ROOT/main.ts" ]; then
     exit 1
 fi
 
-# Run the mermaid checker
-cd "$REPO_ROOT"
-deno run --allow-read main.ts "$@" 
+# Run the mermaid checker from the user's current directory
+# but use the main.ts from our repository
+deno run --allow-read "$REPO_ROOT/main.ts" "$@" 
