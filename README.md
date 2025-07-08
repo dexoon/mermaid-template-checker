@@ -102,9 +102,14 @@ repos:
   - repo: https://github.com/dexoon/mermaid-template-checker
     rev: v1.0.0  # Use the latest release tag, not 'latest'
     hooks:
+      # Option 1: Check all markdown files in the repository
       - id: mermaid-checker
         # args: ["<folder>"]  # Replace <folder> with the directory you want to check
         args: ["."]
+      
+      # Option 2: Check only staged markdown files (faster)
+      # - id: mermaid-checker-staged
+      #   args: ["."]
 ```
 
 Then run:
@@ -115,6 +120,17 @@ pre-commit install
 ```
 
 This will ensure all your markdown files are checked before each commit.
+
+### Troubleshooting
+
+If you see `(no files to check)`, it means:
+- No markdown files are staged for commit, OR
+- No markdown files exist in the repository
+
+**Solutions:**
+1. **Make sure you have markdown files**: Create a `.md` file with mermaid diagrams
+2. **Stage your files**: Run `git add .` before committing
+3. **Use the staged-only hook**: Uncomment the `mermaid-checker-staged` option above for faster checks
 
 ---
 

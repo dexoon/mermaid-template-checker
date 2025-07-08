@@ -3,6 +3,15 @@
   description: Validates mermaid flowcharts in markdown files according to template rules
   entry: deno run --allow-read main.ts
   language: system
-  types: [markdown]
   pass_filenames: false
+  args: ["."]
+  stages: [commit]
+
+- id: mermaid-checker-staged
+  name: Mermaid Template Checker (Staged Files Only)
+  description: Validates mermaid flowcharts only in staged markdown files
+  entry: deno run --allow-read main.ts
+  language: system
+  types: [markdown]
+  pass_filenames: true
   args: ["."] 
