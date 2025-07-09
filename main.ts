@@ -35,11 +35,18 @@ export function checkMermaidFile(content: string): MermaidCheckResult {
   }
   
   // Check each mermaid block
+  let searchIndex = 0;
   mermaidBlocks.forEach((block, blockIndex) => {
     const mermaidContent = block.replace(/```mermaid\n/, '').replace(/\n```/, '');
     
+    // Find the starting line number of this mermaid block in the file
+    const blockStartIndex = content.indexOf(block, searchIndex);
+    searchIndex = blockStartIndex + block.length;
+    const linesBeforeBlock = content.substring(0, blockStartIndex).split('\n').length;
+    const mermaidBlockStartLine = linesBeforeBlock; // Line where ```mermaid appears
+    
     if (!mermaidContent.trim()) {
-      errors.push(`Mermaid block ${blockIndex + 1} is empty`);
+      errors.push(`Mermaid block ${blockIndex + 1} (file line ${mermaidBlockStartLine}) is empty`);
       return;
     }
     
@@ -48,12 +55,12 @@ export function checkMermaidFile(content: string): MermaidCheckResult {
     const firstLine = lines[0].trim();
     
     if (!firstLine.startsWith('flowchart')) {
-      errors.push(`Mermaid block ${blockIndex + 1}: Only flowcharts are validated`);
+      errors.push(`Mermaid block ${blockIndex + 1} (file line ${mermaidBlockStartLine + 1}): Only flowcharts are validated`);
       return;
     }
     
     // Parse the flowchart
-    const parseResult = parseFlowchart(lines, blockIndex + 1);
+    const parseResult = parseFlowchart(lines, blockIndex + 1, mermaidBlockStartLine);
     errors.push(...parseResult.errors);
   });
   
@@ -64,7 +71,7 @@ export function checkMermaidFile(content: string): MermaidCheckResult {
   };
 }
 
-function parseFlowchart(lines: string[], blockNumber: number): { errors: string[] } {
+function parseFlowchart(lines: string[], blockNumber: number, fileLineOffset: number): { errors: string[] } {
   const errors: string[] = [];
   const nodes: NodeDefinition[] = [];
   const connections: Connection[] = [];
@@ -75,8 +82,9 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
 
   let i = 1;
   while (i < lines.length) {
-    let line = lines[i].trim();
+    const line = lines[i].trim();
     const lineNumber = i + 1;
+    const fileLineNumber = fileLineOffset + lineNumber;
 
     // Skip empty lines
     if (!line) { i++; continue; }
@@ -84,7 +92,7 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
     // Check for section markers
     if (line === '%% Node Definitions') {
       if (currentSection !== 'none') {
-        errors.push(`Block ${blockNumber}, line ${lineNumber}: Node Definitions section must come first`);
+        errors.push(`Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Node Definitions section must come first`);
         return { errors };
       }
       currentSection = 'nodes';
@@ -95,7 +103,7 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
 
     if (line === '%% Connections') {
       if (currentSection !== 'nodes') {
-        errors.push(`Block ${blockNumber}, line ${lineNumber}: Connections section must come after Node Definitions`);
+        errors.push(`Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Connections section must come after Node Definitions`);
         return { errors };
       }
       currentSection = 'connections';
@@ -106,19 +114,19 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
 
     // Check for connection syntax in wrong section
     if (currentSection === 'nodes' && line.includes('==') && line.includes('==>')) {
-      errors.push(`Block ${blockNumber}, line ${lineNumber}: Connection syntax found in Node Definitions section`);
+      errors.push(`Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Connection syntax found in Node Definitions section`);
       return { errors };
     }
 
     // Parse content based on current section
     if (currentSection === 'nodes') {
       // Try to parse as single-line node
-      let nodeResult = parseNodeDefinition(line, lineNumber, blockNumber);
+      const nodeResult = parseNodeDefinition(line, lineNumber, blockNumber, fileLineNumber);
       if (nodeResult.error) {
         // Try multi-line node
         const multiLineStart = getMultiLineNodeStart(line);
         if (multiLineStart) {
-          let labelLines = [multiLineStart.labelStart];
+          const labelLines = [multiLineStart.labelStart];
           let foundEnd = false;
           let j = i + 1;
           while (j < lines.length) {
@@ -134,7 +142,7 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
             // Reconstruct the full node definition
             const fullLabel = labelLines.join('\n');
             const fullLine = `${multiLineStart.prefix}${fullLabel}`;
-            const nodeResult2 = parseNodeDefinition(fullLine, lineNumber, blockNumber);
+            const nodeResult2 = parseNodeDefinition(fullLine, lineNumber, blockNumber, fileLineNumber);
             if (nodeResult2.error) {
               errors.push(nodeResult2.error);
             } else if (nodeResult2.node) {
@@ -143,7 +151,7 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
             i = j + 1;
             continue;
           } else {
-            errors.push(`Block ${blockNumber}, line ${lineNumber}: Unterminated multi-line node definition`);
+            errors.push(`Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Unterminated multi-line node definition`);
             i = j;
             continue;
           }
@@ -154,14 +162,14 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
         nodes.push(nodeResult.node);
       }
     } else if (currentSection === 'connections') {
-      const connectionResult = parseConnection(line, lineNumber, blockNumber);
+      const connectionResult = parseConnection(line, lineNumber, blockNumber, fileLineNumber);
       if (connectionResult.error) {
         errors.push(connectionResult.error);
       } else if (connectionResult.connection) {
         connections.push(connectionResult.connection);
       }
     } else {
-      errors.push(`Block ${blockNumber}, line ${lineNumber}: Content outside of Node Definitions or Connections sections`);
+      errors.push(`Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Content outside of Node Definitions or Connections sections`);
     }
     i++;
   }
@@ -180,10 +188,10 @@ function parseFlowchart(lines: string[], blockNumber: number): { errors: string[
     const toNode = nodes.find(n => n.id === conn.to);
 
     if (!fromNode) {
-      errors.push(`Block ${blockNumber}, line ${conn.lineNumber}: Connection references undefined node "${conn.from}"`);
+      errors.push(`Block ${blockNumber}, line ${conn.lineNumber} (file line ${fileLineOffset + conn.lineNumber}): Connection references undefined node "${conn.from}"`);
     }
     if (!toNode) {
-      errors.push(`Block ${blockNumber}, line ${conn.lineNumber}: Connection references undefined node "${conn.to}"`);
+      errors.push(`Block ${blockNumber}, line ${conn.lineNumber} (file line ${fileLineOffset + conn.lineNumber}): Connection references undefined node "${conn.to}"`);
     }
   });
 
@@ -197,7 +205,9 @@ function getMultiLineNodeStart(line: string): { prefix: string, labelStart: stri
     { regex: /^([A-Za-z0-9_]+)\("([^"]*)$/, closing: '")' },
     // Rectangle: NODE_ID["Label
     { regex: /^([A-Za-z0-9_]+)\["([^"]*)$/, closing: '"]' },
-    // Diamond/Hexagon: NODE_ID{"Label
+    // Hexagon (double curly): NODE_ID{{"Label
+    { regex: /^([A-Za-z0-9_]+)\{\{"([^"]*)$/, closing: '"}}' },
+    // Diamond (single curly): NODE_ID{"Label
     { regex: /^([A-Za-z0-9_]+)\{"([^"]*)$/, closing: '"}' },
     // Circle: NODE_ID(("Label
     { regex: /^([A-Za-z0-9_]+)\(\("([^"]*)$/, closing: '"))' },
@@ -219,17 +229,17 @@ function getMultiLineNodeStart(line: string): { prefix: string, labelStart: stri
   return null;
 }
 
-function parseNodeDefinition(line: string, lineNumber: number, blockNumber: number): { node?: NodeDefinition; error?: string } {
+function parseNodeDefinition(line: string, lineNumber: number, blockNumber: number, fileLineNumber: number): { node?: NodeDefinition; error?: string } {
   // Node patterns for single-line labels
   const patterns = [
     // Rectangled-circle: NODE_ID("Label")
     { regex: /^([A-Za-z0-9_]+)\("([^"]*)"\)$/, type: 'rectangled-circle' as const },
     // Rectangle: NODE_ID["Label"]
     { regex: /^([A-Za-z0-9_]+)\["([^"]*)"\]$/, type: 'rectangle' as const },
-    // Diamond: NODE_ID{"Label"}
+    // Hexagon: NODE_ID{{"Label"}} (double curly braces)
+    { regex: /^([A-Za-z0-9_]+)\{\{"([^"]*)"\}\}$/, type: 'hexagon' as const },
+    // Diamond: NODE_ID{"Label"} (single curly braces)
     { regex: /^([A-Za-z0-9_]+)\{"([^"]*)"\}$/, type: 'diamond' as const },
-    // Hexagon: NODE_ID{"Label"}
-    { regex: /^([A-Za-z0-9_]+)\{"([^"]*)"\}$/, type: 'hexagon' as const },
     // Circle: NODE_ID(("Label"))
     { regex: /^([A-Za-z0-9_]+)\(\("([^"]*)"\)\)$/, type: 'circle' as const },
     // Parallelogram: NODE_ID[/"Label"/]
@@ -244,7 +254,7 @@ function parseNodeDefinition(line: string, lineNumber: number, blockNumber: numb
       const label = match[2];
       // For diamond/hexagon, disambiguate by id or context if needed (here, just assign as found)
       // Validate the label content according to node type
-      const labelValidation = validateNodeLabel(label, pattern.type, lineNumber, blockNumber);
+      const labelValidation = validateNodeLabel(label, pattern.type, lineNumber, blockNumber, fileLineNumber);
       if (labelValidation.error) {
         return { error: labelValidation.error };
       }
@@ -259,14 +269,14 @@ function parseNodeDefinition(line: string, lineNumber: number, blockNumber: numb
     }
   }
   return {
-    error: `Block ${blockNumber}, line ${lineNumber}: Invalid node definition syntax. Expected one of: NODE_ID("Label"), NODE_ID["Label"], NODE_ID{"Label"}, NODE_ID(("Label")), NODE_ID[\"Label\"/], NODE_ID(["Label"])`
+    error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Invalid node definition syntax. Expected one of: NODE_ID("Label"), NODE_ID["Label"], NODE_ID{"Label"}, NODE_ID{{"Label"}}, NODE_ID(("Label")), NODE_ID[/"Label"/], NODE_ID(["Label"])`
   };
 }
 
-function validateNodeLabel(label: string, nodeType: string, lineNumber: number, blockNumber: number): { error?: string } {
+function validateNodeLabel(label: string, nodeType: string, lineNumber: number, blockNumber: number, fileLineNumber: number): { error?: string } {
   // For Rectangle nodes, check the new Rectangle Node definition rules
   if (nodeType === 'rectangle') {
-    return validateRectangleNodeLabel(label, lineNumber, blockNumber);
+    return validateRectangleNodeLabel(label, lineNumber, blockNumber, fileLineNumber);
   }
   
   // For other node types, no specific validation required
@@ -274,7 +284,7 @@ function validateNodeLabel(label: string, nodeType: string, lineNumber: number, 
   return {};
 }
 
-function validateRectangleNodeLabel(label: string, lineNumber: number, blockNumber: number): { error?: string } {
+function validateRectangleNodeLabel(label: string, lineNumber: number, blockNumber: number, fileLineNumber: number): { error?: string } {
   // Rectangle nodes should have 3 parts: text, media, buttons
   // At least one of text or media must be present
   
@@ -285,33 +295,33 @@ function validateRectangleNodeLabel(label: string, lineNumber: number, blockNumb
   const mediaMatches = label.match(/\/\/[^\/]*\/\//g) || [];
   
   // Check for buttons
-  const inlineButtons = (label.match(/\[[^\]]+\]/g) || []).filter(btn => !btn.startsWith('[['));
-  const replyButtons = (label.match(/\[\[[^\]]+\]\]/g) || []);
+  const _inlineButtons = (label.match(/\[[^\]]+\]/g) || []).filter(btn => !btn.startsWith('[['));
+  const _replyButtons = (label.match(/\[\[[^\]]+\]\]/g) || []);
   
   // At least one of text or media must be present
   if (textMatches.length === 0 && mediaMatches.length === 0) {
     return {
-      error: `Block ${blockNumber}, line ${lineNumber}: Rectangle node must contain at least text (/text/) or media (//media//)`
+      error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Rectangle node must contain at least text (/text/) or media (//media//)`
     };
   }
   
   // Check for variables in text (should be {$variable} format)
   const textContent = textMatches.join('');
-  const variables = (textContent.match(/\{\$[^}]+\}/g) || []);
-  const templates = (textContent.match(/\(\([^)]+\)\)/g) || []);
+  const _variables = (textContent.match(/\{\$[^}]+\}/g) || []);
+  const _templates = (textContent.match(/\(\([^)]+\)\)/g) || []);
   
   // All validations passed for Rectangle nodes
   return {};
 }
 
-function parseConnection(line: string, lineNumber: number, blockNumber: number): { connection?: Connection; error?: string } {
+function parseConnection(line: string, lineNumber: number, blockNumber: number, fileLineNumber: number): { connection?: Connection; error?: string } {
   // Connection pattern: FROM_NODE == "User action" ==> TO_NODE or FROM_NODE -- "User action" --> TO_NODE
   const pattern = /^([A-Za-z0-9_]+)\s*(==|--)\s*"([^"]*)"\s*(==>|-->)\s*([A-Za-z0-9_]+)$/;
   const match = line.match(pattern);
   
   if (!match) {
     return {
-      error: `Block ${blockNumber}, line ${lineNumber}: Invalid connection syntax. Expected: FROM_NODE == "User action" ==> TO_NODE or FROM_NODE -- "User action" --> TO_NODE`
+      error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Invalid connection syntax. Expected: FROM_NODE == "User action" ==> TO_NODE or FROM_NODE -- "User action" --> TO_NODE`
     };
   }
   
@@ -320,14 +330,14 @@ function parseConnection(line: string, lineNumber: number, blockNumber: number):
   // Validate arrow consistency
   if ((arrowType === '==' && arrowEnd !== '==>') || (arrowType === '--' && arrowEnd !== '-->')) {
     return {
-      error: `Block ${blockNumber}, line ${lineNumber}: Inconsistent arrow types. Use == with ==> or -- with -->`
+      error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Inconsistent arrow types. Use == with ==> or -- with -->`
     };
   }
   
   // Validate comment format
   if (!isValidComment(comment)) {
     return {
-      error: `Block ${blockNumber}, line ${lineNumber}: Invalid comment format. Expected: [Button Text], //media//, or plain text`
+      error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Invalid comment format. Expected: [Button Text], //media//, or plain text`
     };
   }
   
