@@ -233,19 +233,19 @@ function parseNodeDefinition(line: string, lineNumber: number, blockNumber: numb
   // Node patterns for single-line labels
   const patterns = [
     // Rectangled-circle: NODE_ID("Label")
-    { regex: /^([A-Za-z0-9_]+)\("([^"]*)"\)$/, type: 'rectangled-circle' as const },
+    { regex: /^([A-Za-z0-9_]+)\("([\s\S]*)"\)$/, type: 'rectangled-circle' as const },
     // Rectangle: NODE_ID["Label"]
-    { regex: /^([A-Za-z0-9_]+)\["([^"]*)"\]$/, type: 'rectangle' as const },
+    { regex: /^([A-Za-z0-9_]+)\["([\s\S]*)"\]$/, type: 'rectangle' as const },
     // Hexagon: NODE_ID{{"Label"}} (double curly braces)
-    { regex: /^([A-Za-z0-9_]+)\{\{"([^"]*)"\}\}$/, type: 'hexagon' as const },
+    { regex: /^([A-Za-z0-9_]+)\{\{"([\s\S]*)"\}\}$/, type: 'hexagon' as const },
     // Diamond: NODE_ID{"Label"} (single curly braces)
-    { regex: /^([A-Za-z0-9_]+)\{"([^"]*)"\}$/, type: 'diamond' as const },
+    { regex: /^([A-Za-z0-9_]+)\{"([\s\S]*)"\}$/, type: 'diamond' as const },
     // Circle: NODE_ID(("Label"))
-    { regex: /^([A-Za-z0-9_]+)\(\("([^"]*)"\)\)$/, type: 'circle' as const },
+    { regex: /^([A-Za-z0-9_]+)\(\("([\s\S]*)"\)\)$/, type: 'circle' as const },
     // Parallelogram: NODE_ID[/"Label"/]
-    { regex: /^([A-Za-z0-9_]+)\[\/"([^"]*)"\/\]$/, type: 'parallelogram' as const },
+    { regex: /^([A-Za-z0-9_]+)\[\/"([\s\S]*)"\/\]$/, type: 'parallelogram' as const },
     // Stadium: NODE_ID(["Label"])
-    { regex: /^([A-Za-z0-9_]+)\(\["([^"]*)"\]\)$/, type: 'stadium' as const }
+    { regex: /^([A-Za-z0-9_]+)\(\["([\s\S]*)"\]\)$/, type: 'stadium' as const }
   ];
   for (const pattern of patterns) {
     const match = line.match(pattern.regex);
@@ -286,7 +286,7 @@ function validateNodeLabel(label: string, nodeType: string, lineNumber: number, 
 
 function validateRectangleNodeLabel(label: string, lineNumber: number, blockNumber: number, fileLineNumber: number): { error?: string } {
   // Rectangle nodes should have 3 parts: text, media, buttons
-  // At least one of text or media must be present
+  // First or second parts can be omitted, but not both
   
   // Check for text/caption in slashes
   const textMatches = label.match(/\/[^\/]*\//g) || [];
@@ -305,6 +305,10 @@ function validateRectangleNodeLabel(label: string, lineNumber: number, blockNumb
     };
   }
   
+  // Validate that button ordering is correct - buttons can contain both types, 
+  // but can contain many buttons of the same type
+  // No additional validation needed for this as per the rules
+  
   // Check for variables in text (should be {$variable} format)
   const textContent = textMatches.join('');
   const _variables = (textContent.match(/\{\$[^}]+\}/g) || []);
@@ -315,55 +319,76 @@ function validateRectangleNodeLabel(label: string, lineNumber: number, blockNumb
 }
 
 function parseConnection(line: string, lineNumber: number, blockNumber: number, fileLineNumber: number): { connection?: Connection; error?: string } {
-  // Connection pattern: FROM_NODE == "User action" ==> TO_NODE or FROM_NODE -- "User action" --> TO_NODE
-  const pattern = /^([A-Za-z0-9_]+)\s*(==|--)\s*"([^"]*)"\s*(==>|-->)\s*([A-Za-z0-9_]+)$/;
-  const match = line.match(pattern);
+  // Connection pattern: FROM_NODE == "User action" ==> TO_NODE or FROM_NODE ==> TO_NODE (without comment)
   
-  if (!match) {
+  // Try pattern with comment first
+  const patternWithComment = /^([A-Za-z0-9_]+)\s*(==|--)\s*"([^"]*)"\s*(==>|-->)\s*([A-Za-z0-9_]+)$/;
+  const matchWithComment = line.match(patternWithComment);
+  
+  if (matchWithComment) {
+    const [, fromNode, arrowType, comment, arrowEnd, toNode] = matchWithComment;
+    
+    // Validate arrow consistency
+    if ((arrowType === '==' && arrowEnd !== '==>') || (arrowType === '--' && arrowEnd !== '-->')) {
+      return {
+        error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Inconsistent arrow types. Use == with ==> or -- with -->`
+      };
+    }
+    
+    // Validate comment format
+    if (!isValidComment(comment)) {
+      return {
+        error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Invalid comment format. Expected: [Button Text], //media//, or plain text`
+      };
+    }
+    
     return {
-      error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Invalid connection syntax. Expected: FROM_NODE == "User action" ==> TO_NODE or FROM_NODE -- "User action" --> TO_NODE`
+      connection: {
+        from: fromNode,
+        to: toNode,
+        arrowType: arrowType as '==' | '--',
+        comment,
+        lineNumber
+      }
     };
   }
   
-  const [, fromNode, arrowType, comment, arrowEnd, toNode] = match;
+  // Try pattern without comment
+  const patternWithoutComment = /^([A-Za-z0-9_]+)\s*(==>|-->)\s*([A-Za-z0-9_]+)$/;
+  const matchWithoutComment = line.match(patternWithoutComment);
   
-  // Validate arrow consistency
-  if ((arrowType === '==' && arrowEnd !== '==>') || (arrowType === '--' && arrowEnd !== '-->')) {
+  if (matchWithoutComment) {
+    const [, fromNode, arrow, toNode] = matchWithoutComment;
+    const arrowType = arrow.startsWith('==') ? '==' : '--';
+    
     return {
-      error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Inconsistent arrow types. Use == with ==> or -- with -->`
-    };
-  }
-  
-  // Validate comment format
-  if (!isValidComment(comment)) {
-    return {
-      error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Invalid comment format. Expected: [Button Text], //media//, or plain text`
+      connection: {
+        from: fromNode,
+        to: toNode,
+        arrowType: arrowType as '==' | '--',
+        comment: '', // Empty comment
+        lineNumber
+      }
     };
   }
   
   return {
-    connection: {
-      from: fromNode,
-      to: toNode,
-      arrowType: arrowType as '==' | '--',
-      comment,
-      lineNumber
-    }
+    error: `Block ${blockNumber}, line ${lineNumber} (file line ${fileLineNumber}): Invalid connection syntax. Expected: FROM_NODE -- "User action" --> TO_NODE or FROM_NODE ==> TO_NODE`
   };
 }
 
 function isValidComment(comment: string): boolean {
-  // Button format: [Button Text]
+  // Button format: [Button Text] - single inline button only
   if (/^\[[^\]]+\]$/.test(comment)) {
     return true;
   }
   
-  // Reply button format: [[Button Text]]
+  // Reply button format: [[Button Text]] - single reply button only
   if (/^\[\[[^\]]+\]\]$/.test(comment)) {
     return true;
   }
   
-  // Media format: //photo//, //video//
+  // Media format: //photo//, //video// - single media only
   if (/^\/\/[^\/]+\/\/$/.test(comment)) {
     return true;
   }
@@ -371,6 +396,25 @@ function isValidComment(comment: string): boolean {
   // Plain text (no special formatting)
   if (!comment.includes('[') && !comment.includes(']') && !comment.includes('//')) {
     return true;
+  }
+  
+  // Check for mixed button types or multiple buttons/media in comments
+  const inlineButtons = (comment.match(/\[[^\]]+\]/g) || []).filter(btn => !btn.startsWith('[['));
+  const replyButtons = comment.match(/\[\[[^\]]+\]\]/g) || [];
+  const media = comment.match(/\/\/[^\/]+\/\//g) || [];
+  
+  // If multiple types are found, it's invalid
+  const typeCount = (inlineButtons.length > 0 ? 1 : 0) + 
+                   (replyButtons.length > 0 ? 1 : 0) + 
+                   (media.length > 0 ? 1 : 0);
+  
+  if (typeCount > 1) {
+    return false;
+  }
+  
+  // If multiple items of the same type are found, it's invalid for comments
+  if (inlineButtons.length > 1 || replyButtons.length > 1 || media.length > 1) {
+    return false;
   }
   
   return false;

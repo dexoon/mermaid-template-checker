@@ -50,7 +50,7 @@ Diagram Rules (Plain English)
 
                 - Media description, which goes in double slashes like //photo of me//
 
-                - Buttons, which are either [inline] or [[reply]]. Node can contain both types, but it can contain many buttons of the same type
+                - Buttons, which are either [inline] or [[reply]]. Node can't contain both types, but it can contain many buttons of the same type
 
 
     Connections
@@ -58,7 +58,7 @@ Diagram Rules (Plain English)
         Each connection represents a possible user action or bot transition, on its own line.
 
         Syntax:
-        FROM_NODE == "User action" ==> TO_NODE
+        FROM_NODE == "User action" ==> TO_NODE or FROM_NODE ==> TO_NODE
 
         There are two kinds of arrows:
 

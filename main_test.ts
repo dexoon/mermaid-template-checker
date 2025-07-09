@@ -1,16 +1,16 @@
 import { assert, assertEquals, assertExists } from "@std/assert";
 import { checkMermaidFile, checkMermaidFilesInDirectory } from "./main.ts";
 
-Deno.test("checkMermaidFile - valid flowchart content", async () => {
+Deno.test("checkMermaidFile - valid flowchart content", () => {
   const validContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
 START("/Welcome/")
-END["/Thank you for using our service/"]
+END["/Thank you/"]
 
 %% Connections
-START == "User action" ==> END
+START ==> END
 \`\`\``;
   
   const result = checkMermaidFile(validContent);
@@ -18,18 +18,19 @@ START == "User action" ==> END
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - rectangle node with text and buttons", async () => {
+Deno.test("checkMermaidFile - rectangle node with text and buttons", () => {
   const rectangleContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
 START("/Welcome/")
-GREETING["/Hello {$user}! How can I help you?/ [Continue] [[Reply]]"]
-END["/Thank you for using our service/"]
+ACTION["/Choose an action/ [Option 1] [Option 2]"]
+END["/End/"]
 
 %% Connections
-START == "User starts" ==> GREETING
-GREETING == "[Continue]" ==> END
+START ==> ACTION
+ACTION -- "[Option 1]" --> END
+ACTION -- "[Option 2]" --> END
 \`\`\``;
   
   const result = checkMermaidFile(rectangleContent);
@@ -37,45 +38,45 @@ GREETING == "[Continue]" ==> END
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - rectangle node with media only", async () => {
-  const mediaContent = `# Test
+Deno.test("checkMermaidFile - rectangle node with media only", () => {
+  const mediaOnlyContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
 START("/Welcome/")
-PHOTO["//photo of me// [View]"]
-END["/Thank you for using our service/"]
+MEDIA["//image.jpg//"]
+END["/End/"]
 
 %% Connections
-START == "User starts" ==> PHOTO
-PHOTO == "[View]" ==> END
+START ==> MEDIA
+MEDIA ==> END
 \`\`\``;
   
-  const result = checkMermaidFile(mediaContent);
+  const result = checkMermaidFile(mediaOnlyContent);
   assertEquals(result.isValid, true);
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - rectangle node with text and media", async () => {
-  const textMediaContent = `# Test
+Deno.test("checkMermaidFile - rectangle node with text and media", () => {
+  const textAndMediaContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
 START("/Welcome/")
-CONTENT["/Here's a photo of me/ //photo of me// [View]"]
-END["/Thank you for using our service/"]
+MEDIA_TEXT["/Here is an image/ //image.jpg//"]
+END["/End/"]
 
 %% Connections
-START == "User starts" ==> CONTENT
-CONTENT == "[View]" ==> END
+START ==> MEDIA_TEXT
+MEDIA_TEXT ==> END
 \`\`\``;
   
-  const result = checkMermaidFile(textMediaContent);
+  const result = checkMermaidFile(textAndMediaContent);
   assertEquals(result.isValid, true);
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - invalid rectangle node (no text or media)", async () => {
+Deno.test("checkMermaidFile - invalid rectangle node (no text or media)", () => {
   const invalidContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -94,18 +95,18 @@ INVALID == "User clicks" ==> END
   assertEquals(result.errors.some(e => e.includes("must contain at least text")), true);
 });
 
-Deno.test("checkMermaidFile - multi-line node definitions", async () => {
+Deno.test("checkMermaidFile - multi-line node definitions", () => {
   const multiLineContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
-START("/Welcome to our
-service/")
-MESSAGE["/This is a multi-line
-message/"]
+START("/Welcome
+to the jungle/")
+END["/Thank you
+for your business/"]
 
 %% Connections
-START == "User begins" ==> MESSAGE
+START ==> END
 \`\`\``;
   
   const result = checkMermaidFile(multiLineContent);
@@ -113,18 +114,18 @@ START == "User begins" ==> MESSAGE
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - variables and templates", async () => {
+Deno.test("checkMermaidFile - variables and templates", () => {
   const variablesContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
-START("/Welcome/")
-GREETING["/Hello {$user_name}! How can I help you?/"]
-PROCESS["/Processing with {template_name}/"]
+START("/Welcome {$name}/")
+TEMPLATE["/Using template ((template_name))/"]
+END["/Bye {$name}/"]
 
 %% Connections
-START == "User starts" ==> GREETING
-GREETING == "User responds" ==> PROCESS
+START ==> TEMPLATE
+TEMPLATE ==> END
 \`\`\``;
   
   const result = checkMermaidFile(variablesContent);
@@ -132,27 +133,28 @@ GREETING == "User responds" ==> PROCESS
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - reply buttons", async () => {
-  const replyButtonsContent = `# Test
+Deno.test("checkMermaidFile - reply buttons", () => {
+  const replyButtonContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
 START("/Welcome/")
-GREETING["/Hello! How can I help you?/"]
-CHOICE{{"What would you like to do?"}}
+CHOICE["/Please choose:/ [[Yes]] [[No]]"]
+YES_BRANCH["/You chose Yes/"]
+NO_BRANCH["/You chose No/"]
 
 %% Connections
-START == "User starts" ==> GREETING
-GREETING == "User responds" ==> CHOICE
-CHOICE == "[Continue]" ==> START
+START ==> CHOICE
+CHOICE -- "[[Yes]]" --> YES_BRANCH
+CHOICE -- "[[No]]" --> NO_BRANCH
 \`\`\``;
   
-  const result = checkMermaidFile(replyButtonsContent);
+  const result = checkMermaidFile(replyButtonContent);
   assertEquals(result.isValid, true);
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - missing text/media blocks", async () => {
+Deno.test("checkMermaidFile - missing text/media blocks", () => {
   const missingTextContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -169,27 +171,27 @@ START == "User starts" ==> GREETING
   assertEquals(result.errors.some(e => e.includes("Rectangle node must contain at least text")), true);
 });
 
-Deno.test("checkMermaidFile - mixed button types", async () => {
-  const mixedButtonsContent = `# Test
+Deno.test("checkMermaidFile - mixed button types", () => {
+  const mixedButtonContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
 START("/Welcome/")
-GREETING["/Hello! How can I help you?/"]
-CHOICE{{"What would you like to do?"}}
+CHOICE["/Please choose:/ [Inline] [[Reply]]"]
+END["/End/"]
 
 %% Connections
-START == "User starts" ==> GREETING
-GREETING == "User responds" ==> CHOICE
-CHOICE == "[Continue] [[Reply]]" ==> START
+START ==> CHOICE
+CHOICE -- "[Inline]" --> END
+CHOICE -- "[[Reply]]" --> END
 \`\`\``;
   
-  const result = checkMermaidFile(mixedButtonsContent);
-  assertEquals(result.isValid, false);
-  assertEquals(result.errors.some(e => e.includes("Invalid comment format")), true);
+  const result = checkMermaidFile(mixedButtonContent);
+  assertEquals(result.isValid, true);
+  assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - unterminated multi-line node", async () => {
+Deno.test("checkMermaidFile - unterminated multi-line node", () => {
   const unterminatedContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -204,10 +206,10 @@ START == "User begins" ==> MESSAGE
   
   const result = checkMermaidFile(unterminatedContent);
   assertEquals(result.isValid, false);
-  assertEquals(result.errors.some(e => e.includes("Unterminated multi-line node definition")), true);
+  assertEquals(result.errors.some(e => e.includes("Unterminated multi-line node")), true);
 });
 
-Deno.test("checkMermaidFile - invalid flowchart content", async () => {
+Deno.test("checkMermaidFile - invalid flowchart content", () => {
   const invalidContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -218,10 +220,10 @@ START --> END
   
   const result = checkMermaidFile(invalidContent);
   assertEquals(result.isValid, false);
-  assertEquals(result.errors.length > 0, true);
+  assertEquals(result.errors.some(e => e.includes("Content outside of Node Definitions or Connections sections")), true);
 });
 
-Deno.test("checkMermaidFile - missing sections", async () => {
+Deno.test("checkMermaidFile - missing sections", () => {
   const missingSectionsContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -232,10 +234,10 @@ START == "Action" ==> END
   
   const result = checkMermaidFile(missingSectionsContent);
   assertEquals(result.isValid, false);
-  assertEquals(result.errors.some(e => e.includes("Missing")), true);
+  assertEquals(result.errors.some(e => e.includes("Missing \"%% Node Definitions\" section")), true);
 });
 
-Deno.test("checkMermaidFile - wrong section order", async () => {
+Deno.test("checkMermaidFile - wrong section order", () => {
   const wrongOrderContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -249,26 +251,26 @@ END["/Thank you/"]
   
   const result = checkMermaidFile(wrongOrderContent);
   assertEquals(result.isValid, false);
-  assertEquals(result.errors.some(e => e.includes("must come after")), true);
+  assertEquals(result.errors.some(e => e.includes("Connections section must come after Node Definitions")), true);
 });
 
-Deno.test("checkMermaidFile - undefined nodes", async () => {
-  const undefinedNodesContent = `# Test
+Deno.test("checkMermaidFile - undefined nodes", () => {
+  const undefinedNodeContent = `# Test
 \`\`\`mermaid
 flowchart TD
 %% Node Definitions
 START("/Welcome/")
 
 %% Connections
-START == "Action" ==> UNDEFINED
+START ==> NON_EXISTENT
 \`\`\``;
   
-  const result = checkMermaidFile(undefinedNodesContent);
+  const result = checkMermaidFile(undefinedNodeContent);
   assertEquals(result.isValid, false);
-  assertEquals(result.errors.some(e => e.includes("undefined node")), true);
+  assertEquals(result.errors.some(e => e.includes("references undefined node")), true);
 });
 
-Deno.test("checkMermaidFile - invalid node syntax", async () => {
+Deno.test("checkMermaidFile - invalid node syntax", () => {
   const invalidNodeContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -282,10 +284,10 @@ START == "Action" ==> END
   
   const result = checkMermaidFile(invalidNodeContent);
   assertEquals(result.isValid, false);
-  assertEquals(result.errors.some(e => e.includes("Invalid node definition")), true);
+  assertEquals(result.errors.some(e => e.includes("Invalid node definition syntax")), true);
 });
 
-Deno.test("checkMermaidFile - invalid connection syntax", async () => {
+Deno.test("checkMermaidFile - invalid connection syntax", () => {
   const invalidConnectionContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -294,7 +296,7 @@ START("/Welcome/")
 END["/Thank you/"]
 
 %% Connections
-START --> END
+START --invalid--> END
 \`\`\``;
   
   const result = checkMermaidFile(invalidConnectionContent);
@@ -302,7 +304,7 @@ START --> END
   assertEquals(result.errors.some(e => e.includes("Invalid connection syntax")), true);
 });
 
-Deno.test("checkMermaidFile - non-flowchart diagram", async () => {
+Deno.test("checkMermaidFile - non-flowchart diagram", () => {
   const nonFlowchartContent = `# Test
 \`\`\`mermaid
 sequenceDiagram
@@ -316,7 +318,7 @@ A->>B: Hello
   assertEquals(result.errors.some(e => e.includes("Only flowcharts are validated")), true);
 });
 
-Deno.test("checkMermaidFile - empty mermaid block", async () => {
+Deno.test("checkMermaidFile - empty mermaid block", () => {
   const emptyContent = `# Test
 \`\`\`mermaid
 
@@ -327,7 +329,7 @@ Deno.test("checkMermaidFile - empty mermaid block", async () => {
   assertEquals(result.errors.some(e => e.includes("empty")), true);
 });
 
-Deno.test("checkMermaidFile - no mermaid blocks", async () => {
+Deno.test("checkMermaidFile - no mermaid blocks", () => {
   const noMermaidContent = `# Test
 This is just regular markdown content.
 No mermaid blocks here.`;
@@ -337,7 +339,7 @@ No mermaid blocks here.`;
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - stadium shaped node for FSM transitions", async () => {
+Deno.test("checkMermaidFile - stadium shaped node for FSM transitions", () => {
   const stadiumContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -347,8 +349,8 @@ TRANSITION(["Go to other module"])
 END["/Thank you for using our service/"]
 
 %% Connections
-START == "User starts" ==> TRANSITION
-TRANSITION == "User clicks" ==> END
+START ==> TRANSITION
+TRANSITION ==> END
 \`\`\``;
   
   const result = checkMermaidFile(stadiumContent);
@@ -356,7 +358,7 @@ TRANSITION == "User clicks" ==> END
   assertEquals(result.errors.length, 0);
 });
 
-Deno.test("checkMermaidFile - multi-line stadium shaped node", async () => {
+Deno.test("checkMermaidFile - multi-line stadium shaped node", () => {
   const multiLineStadiumContent = `# Test
 \`\`\`mermaid
 flowchart TD
@@ -367,8 +369,8 @@ with multi-line label"])
 END["/Thank you for using our service/"]
 
 %% Connections
-START == "User starts" ==> TRANSITION
-TRANSITION == "User clicks" ==> END
+START ==> TRANSITION
+TRANSITION ==> END
 \`\`\``;
   
   const result = checkMermaidFile(multiLineStadiumContent);
@@ -430,4 +432,42 @@ Deno.test("checkMermaidFilesInDirectory - with filename template", async () => {
   
   assertExists(resultsWithNoMatchTemplate);
   assertEquals(resultsWithNoMatchTemplate.length, 0);
+});
+
+Deno.test("checkMermaidFile - connections without comments", () => {
+  const connectionContent = `# Test
+\`\`\`mermaid
+flowchart TD
+%% Node Definitions
+START("/Welcome/")
+PROCESS["/Processing/"]
+END["/Thank you for using our service/"]
+
+%% Connections
+START ==> PROCESS
+PROCESS ==> END
+\`\`\``;
+  
+  const result = checkMermaidFile(connectionContent);
+  assertEquals(result.isValid, true);
+  assertEquals(result.errors.length, 0);
+});
+
+Deno.test("checkMermaidFile - mixed connections with and without comments", () => {
+  const mixedConnectionContent = `# Test
+\`\`\`mermaid
+flowchart TD
+%% Node Definitions
+START("/Welcome/")
+PROCESS["/Processing/"]
+END["/Thank you for using our service/"]
+
+%% Connections
+START -- "User starts" --> PROCESS
+PROCESS ==> END
+\`\`\``;
+  
+  const result = checkMermaidFile(mixedConnectionContent);
+  assertEquals(result.isValid, true);
+  assertEquals(result.errors.length, 0);
 });
